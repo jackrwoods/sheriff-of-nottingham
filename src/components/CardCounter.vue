@@ -4,14 +4,14 @@
 @Email:  jackrwoods@gmail.com
 @Filename: HelloWorld.vue
 @Last modified by:   Jack Woods
-@Last modified time: 2019-09-25T19:23:19-07:00
+@Last modified time: 2019-09-25T20:00:42-07:00
 -->
 
 <template>
   <div class="main">
-    <b>Unknown Cards Likely to Be in Play ({{ percentKnown.toFixed(2) }}% Known):</b><br />
+    <b>Probability a Card Will be Drawn ({{ percentKnown.toFixed(2) }}% Known):</b><br />
     <span v-for="key in Object.keys(goodsUnaccountedFor)">
-      {{ key }}: {{ ((numOfPlayers * 6 - numAccountedFor) * pdg(key)).toFixed(3) }}<br />
+      {{ key }}: {{ (pdg(key) * 100).toFixed(3) }}<br />
     </span>
     <br />
     <b>Known Goods:</b><br />
@@ -23,7 +23,8 @@
         </span>
       </div><br />
     </div>
-    {{ avgErrorTest }}
+    <b>Probability Player 0 Has 3 Apples in Hand at Beginning of Game:</b><br />
+    {{ probabilityCardsInHand('apple', 3, 0) * 100 }}%
   </div>
 </template>
 
@@ -119,85 +120,6 @@ export default {
     // For example, if we only know at least 2 apples are in play, the percent is 2/30 * 100 = 6.67%
     percentKnown() {
       return this.numAccountedFor / (6 * this.numOfPlayers) * 100
-    },
-    avgErrorTest() {
-      // Create an object representing expected results
-      const EXPECTED = {
-        // Legal Goods
-        apple: this.pdg('apple'),
-        cheese: this.pdg('cheese'),
-        bread: this.pdg('bread'),
-        chicken: this.pdg('chicken'),
-        // Contraband
-        pepper: this.pdg('pepper'),
-        mead: this.pdg('mead'),
-        silk: this.pdg('silk'),
-        crossbow: this.pdg('crossbow'),
-        // Royal Goods
-        royalRooster: this.pdg('royalRooster'),
-        ryeBread: this.pdg('ryeBread'),
-        pumpernickelBread: this.pdg('pumpernickelBread'),
-        goudaCheese: this.pdg('goudaCheese'),
-        bleuCheese: this.pdg('bleuCheese'),
-        greenApple: this.pdg('greenApple'),
-        goldenApple: this.pdg('goldenApple')
-      }
-      // Create array of "cards"
-      let arr = []
-      Object.keys(this.goodsUnaccountedFor).forEach(key => {
-        for (let i = 0; i < this.goodsUnaccountedFor[key]; i++) {
-          arr.push(key)
-        }
-      })
-
-      // Shuffle the deck numTests times and calculate the per-card error
-      // Compute the average per-card error and add it to the results array
-      let results = []
-      for (let numTests = 0; numTests < 100; numTests++) {
-
-        // Random shuffle
-        arr.sort(() => Math.random() - 0.5)
-        let counts = {
-          // Legal Goods
-          apple: 0,
-          cheese: 0,
-          bread: 0,
-          chicken: 0,
-          // Contraband
-          pepper: 0,
-          mead: 0,
-          silk: 0,
-          crossbow: 0,
-          // Royal Goods
-          royalRooster: 0,
-          ryeBread: 0,
-          pumpernickelBread: 0,
-          goudaCheese: 0,
-          bleuCheese: 0,
-          greenApple: 0,
-          goldenApple: 0
-        }
-
-        // Tally the counts of the first 30 cards
-        for (let j = 0; j < 30; j++) {
-          counts[arr[j]]++
-        }
-
-        // Subtract the expected value
-        Object.keys(counts).forEach(key => {
-          counts[key] -= EXPECTED[key]
-        })
-
-        // Add all errors together
-        let sum = 0;
-        Object.keys(counts).forEach(key => {
-          sum += counts[key]
-        })
-
-        results.push(parseFloat((sum / 30).toFixed(5)))
-      }
-
-      return JSON.stringify(results)
     }
   },
   methods: {
@@ -212,6 +134,24 @@ export default {
         sum += p[nameOfGood]
       })
       return sum
+    },
+
+    // Calculates the probability that a certain number of cards are in a player's hand.
+    probabilityCardsInHand(type, number, playerNumber) {
+      let numKnownCards = 0;
+      let numberNeeded = number
+      Object.keys(this.playersHands[playerNumber]).forEach(key => {
+        numKnownCards += this.playersHands[playerNumber][key]
+        if (key == type) numberNeeded -= this.playersHands[playerNumber][key]
+      })
+      return (this.nChooseR(this.goodsUnaccountedFor[type], numberNeeded) * this.nChooseR(this.cardsRemaining - numberNeeded, 6 - numKnownCards - numberNeeded))/this.nChooseR(this.cardsRemaining, 6 - numKnownCards)
+    },
+    nChooseR(n, r) {
+      let result = 1
+      for(var i=1; i <= r; i++){
+          result *= (n+1-i)/i
+      }
+      return result
     }
   },
   created() {
